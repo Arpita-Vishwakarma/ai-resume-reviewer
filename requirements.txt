@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+python-dotenv
+PyMuPDF
+langchain>=0.2.0
+langchain-google-genai>=0.0.10
