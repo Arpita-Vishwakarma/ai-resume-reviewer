@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI Resume Reviewer — Upload</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; padding: 24px; background:#f7f8fb; color:#111; }
+    .card { max-width:700px; margin:24px auto; padding:28px; background:#fff; border-radius:16px; box-shadow:0 6px 18px rgba(20,20,40,0.06); transition:0.3s; }
+    h1 { margin:0 0 8px; font-size:22px; color:#1e293b; }
+    p { margin:0 0 16px; color:#475569; }
+    label.file { display:block; border:2px dashed #d0d7e1; padding:20px; border-radius:10px; text-align:center; cursor:pointer; color:#334155; }
+    input[type="file"] { display:none; }
+    .controls { display:flex; gap:10px; margin-top:14px; }
+    button { padding:10px 16px; border-radius:8px; border:0; cursor:pointer; background:#2563eb; color:#fff; font-weight:600; }
+    button.secondary { background:#e6eefc; color:#0f172a; }
+    .status { margin-top:12px; color:#0f172a; font-weight:600; }
+    .result-card { background:#f9fafb; border-radius:12px; padding:20px; margin-top:20px; box-shadow:0 4px 12px rgba(0,0,0,0.05); animation:fadeIn 0.5s ease-in-out; }
+    .result-card h2 { margin-top:0; color:#1d4ed8; }
+    .result-card h3 { margin-bottom:6px; margin-top:16px; color:#334155; }
+    .result-card ul { line-height:1.6; color:#111; }
+    pre { white-space:pre-wrap; background:#0f172a; color:#e6eefc; padding:12px; border-radius:8px; margin-top:12px; overflow:auto; max-height:360px; }
+    small.note { color:#64748b; display:block; margin-top:10px; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>📄 Upload Resume (PDF)</h1>
+    <p>Let our AI HR Assistant analyze your resume and give personalized suggestions to improve it.</p>
+
+    <form id="uploadForm">
+      <label class="file" for="resumeFile" id="fileLabel">
+        <span id="fileLabelText">Click to choose a PDF file</span>
+        <input id="resumeFile" name="file" type="file" accept="application/pdf" />
+      </label>
+
+      <div class="controls">
+        <button type="submit" id="submitBtn">Upload & Analyze</button>
+        <button type="button" id="clearBtn" class="secondary">Clear</button>
+      </div>
+
+      <div class="status" id="status" style="display:none"></div>
+      <small class="note">Tip: Make sure FastAPI is running on port 8000 with CORS enabled.</small>
+    </form>
+
+    <div id="result" style="display:none" class="result-card"></div>
+  </div>
+
+  <script>
+    const API_URL = 'http://127.0.0.1:8000/analyze-resume/';
+
+    const resumeFile = document.getElementById('resumeFile');
+    const fileLabelText = document.getElementById('fileLabelText');
+    const form = document.getElementById('uploadForm');
+    const statusEl = document.getElementById('status');
+    const resultEl = document.getElementById('result');
+    const submitBtn = document.getElementById('submitBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    resumeFile.addEventListener('change', () => {
+      const f = resumeFile.files[0];
+      fileLabelText.textContent = f ? `${f.name} (${Math.round(f.size/1024)} KB)` : 'Click to choose a PDF file';
+    });
+
+    clearBtn.addEventListener('click', () => {
+      resumeFile.value = '';
+      fileLabelText.textContent = 'Click to choose a PDF file';
+      resultEl.style.display = 'none';
+      statusEl.style.display = 'none';
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const file = resumeFile.files[0];
+      if (!file) {
+        alert('Please choose a PDF file first.');
+        return;
+      }
+
+      statusEl.style.display = 'block';
+      statusEl.textContent = 'Uploading & analyzing... ⏳';
+      submitBtn.disabled = true;
+
+      try {
+        const fd = new FormData();
+        fd.append('file', file, file.name);
+
+        const res = await fetch(API_URL, { method: 'POST', body: fd });
+        const body = await res.json();
+
+        if (res.ok && !body.error) {
+          resultEl.innerHTML = `
+            <h2>🧠 AI Resume Feedback</h2>
+            <p><strong>${body.rating}</strong></p>
+            <p>${body.summary}</p>
+
+            <h3>✨ Suggested Improvements</h3>
+            <ul>${body.improvements.map(item => `<li>${item}</li>`).join('')}</ul>
+
+            <h3>💬 Detailed Review</h3>
+            <pre>${body.raw_feedback}</pre>
+
+            <p style="margin-top:16px;color:#475569;">
+              💡 This isn’t just feedback — it’s a <strong>personalized guide</strong> to help you enhance your resume. 
+              Use the suggestions above to make your achievements shine and strengthen your technical narrative!
+            </p>
+          `;
+          resultEl.style.display = 'block';
+          statusEl.textContent = '✅ Done';
+        } else {
+          resultEl.textContent = body.error || 'Error occurred.';
+          resultEl.style.display = 'block';
+          statusEl.textContent = '❌ Error';
+        }
+      } catch (err) {
+        statusEl.textContent = 'Network or server error ❌';
+        resultEl.textContent = String(err);
+        resultEl.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    const fileLabel = document.getElementById('fileLabel');
+    fileLabel.addEventListener('dragover', (ev) => { ev.preventDefault(); fileLabel.style.opacity = 0.8; });
+    fileLabel.addEventListener('dragleave', (ev) => { ev.preventDefault(); fileLabel.style.opacity = 1; });
+    fileLabel.addEventListener('drop', (ev) => {
+      ev.preventDefault();
+      fileLabel.style.opacity = 1;
+      const f = ev.dataTransfer.files[0];
+      if (f) {
+        resumeFile.files = ev.dataTransfer.files;
+        fileLabelText.textContent = `${f.name} (${Math.round(f.size/1024)} KB)`;
+      }
+    });
+  </script>
+</body>
+</html>

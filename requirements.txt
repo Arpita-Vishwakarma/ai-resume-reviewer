@@ -1,6 +1,8 @@
 fastapi
 uvicorn
+jinja2
 python-dotenv
-PyMuPDF
-langchain>=0.2.0
-langchain-google-genai>=0.0.10
+pymupdf
+langchain
+langchain-core
+langchain-google-genai
